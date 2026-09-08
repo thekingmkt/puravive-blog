@@ -54,9 +54,25 @@ export default function PostForm({ categories, post, action }: Props) {
   const [showProduct, setShowProduct] = useState(
     Boolean(post?.product_name)
   );
+  const [productName, setProductName] = useState(post?.product_name ?? "");
   const [productImageUrl, setProductImageUrl] = useState(
     post?.product_image_url ?? ""
   );
+  const [productDescription, setProductDescription] = useState(
+    post?.product_description ?? ""
+  );
+  const [productUrl, setProductUrl] = useState(post?.product_url ?? "");
+
+  const hasProduct = Boolean(
+    productName || productImageUrl || productDescription || productUrl
+  );
+
+  function removeProduct() {
+    setProductName("");
+    setProductImageUrl("");
+    setProductDescription("");
+    setProductUrl("");
+  }
 
   function handleTitleChange(value: string) {
     setTitle(value);
@@ -218,7 +234,10 @@ export default function PostForm({ categories, post, action }: Props) {
         open={showProduct}
         onToggle={(e) => setShowProduct(e.currentTarget.open)}
       >
-        <summary>Produto relacionado (opcional)</summary>
+        <summary>
+          Produto relacionado (opcional)
+          {hasProduct && <span className="section-badge">ativo</span>}
+        </summary>
         <div className="field-section-body">
           <div className="field">
             <label className="field-label" htmlFor="product_name">
@@ -227,7 +246,8 @@ export default function PostForm({ categories, post, action }: Props) {
             <input
               id="product_name"
               name="product_name"
-              defaultValue={post?.product_name ?? ""}
+              value={productName}
+              onChange={(e) => setProductName(e.target.value)}
             />
           </div>
           <ImageUploadField
@@ -243,7 +263,8 @@ export default function PostForm({ categories, post, action }: Props) {
             <input
               id="product_description"
               name="product_description"
-              defaultValue={post?.product_description ?? ""}
+              value={productDescription}
+              onChange={(e) => setProductDescription(e.target.value)}
               placeholder="O que o produto faz, em uma frase"
             />
           </div>
@@ -255,9 +276,25 @@ export default function PostForm({ categories, post, action }: Props) {
               id="product_url"
               name="product_url"
               type="url"
-              defaultValue={post?.product_url ?? ""}
+              value={productUrl}
+              onChange={(e) => setProductUrl(e.target.value)}
               placeholder="https://www.puravive.com.br/products/..."
             />
+          </div>
+
+          <div className="field-section-foot">
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={removeProduct}
+              disabled={!hasProduct}
+            >
+              Remover produto do post
+            </button>
+            <p className="field-hint">
+              Limpa os campos acima. O bloco do produto some do post quando
+              você salvar.
+            </p>
           </div>
         </div>
       </details>
