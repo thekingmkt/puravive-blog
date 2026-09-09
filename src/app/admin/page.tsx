@@ -11,6 +11,37 @@ const STATUS_LABEL: Record<string, string> = {
   publicado: "Publicado",
 };
 
+// O blog inteiro trabalha em Brasília (ver actions.ts). Sem fixar o fuso aqui,
+// o servidor da Vercel renderiza em UTC e um post agendado para as 22h aparece
+// no dia seguinte na lista.
+const TZ = "America/Sao_Paulo";
+
+function formatRowDate(post: { status: PostStatus; published_at: string | null }) {
+  if (!post.published_at) return null;
+
+  const d = new Date(post.published_at);
+  const date = d.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: TZ,
+  });
+  const time = d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: TZ,
+  });
+
+  // Em agendado a hora muda o que a pessoa precisa saber, então ela aparece.
+  const label = post.status === "agendado" ? `${date}, ${time}` : date;
+  const hint =
+    post.status === "agendado"
+      ? `Vai ao ar em ${date} às ${time}`
+      : `Publicado em ${date} às ${time}`;
+
+  return { label, hint };
+}
+
 const TABS: { key: PostStatus | "todos"; label: string; empty: string }[] = [
   { key: "todos", label: "Todos", empty: "Nenhum post ainda. Crie o primeiro." },
   { key: "rascunho", label: "Rascunhos", empty: "Nenhum rascunho no momento." },
@@ -87,6 +118,22 @@ export default async function AdminDashboard({
                 <span className="admin-post-category">
                   {post.category?.name ?? "Sem categoria"}
                 </span>
+                {(() => {
+                  const d = formatRowDate(post);
+                  return d ? (
+                    <time
+                      className="admin-post-date"
+                      dateTime={post.published_at ?? undefined}
+                      title={d.hint}
+                    >
+                      {d.label}
+                    </time>
+                  ) : (
+                    <span className="admin-post-date admin-post-date-empty">
+                      Sem data
+                    </span>
+                  );
+                })()}
                 <PostStatusToggle postId={post.id} status={post.status} />
               </div>
             ))}

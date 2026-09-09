@@ -1167,7 +1167,7 @@ a.pill:hover {
 .admin-post-row {
   position: relative;
   display: grid;
-  grid-template-columns: 110px 1fr auto auto;
+  grid-template-columns: 110px 1fr auto auto auto;
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
@@ -1201,6 +1201,15 @@ a.pill:hover {
   color: var(--ink-soft);
   font-size: 0.85rem;
   white-space: nowrap;
+}
+.admin-post-date {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.admin-post-date-empty {
+  opacity: 0.6;
 }
 .admin-status {
   font-size: 0.72rem;
@@ -1270,6 +1279,10 @@ a.pill:hover {
     white-space: normal;
   }
   .admin-post-category {
+    justify-self: start;
+  }
+  .admin-post-date {
+    grid-column: 1 / -1;
     justify-self: start;
   }
   .admin-row-action {
