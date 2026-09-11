@@ -1082,9 +1082,13 @@ a.pill:hover {
   .admin-nav {
     order: 3;
     width: 100%;
+    /* Sem quebrar linha, o menu passou a estourar a tela quando chegou a cinco
+       seções: os itens não encolhem abaixo do próprio texto. */
+    flex-wrap: wrap;
   }
   .admin-nav-link {
-    flex: 1;
+    flex: 1 1 auto;
+    min-width: 0;
     text-align: center;
   }
 }
