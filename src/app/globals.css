@@ -2186,10 +2186,18 @@ a.pill:hover {
   color: #b91c1c;
 }
 .activity-post {
+  /* O corte precisa ser só no título. Quando ele valia para a linha toda, o
+     detalhe do que mudou ficava para fora e nunca aparecia. */
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  color: var(--ink);
+}
+.activity-alvo {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--ink);
 }
 .activity-post a {
   font-weight: 600;
@@ -2200,7 +2208,8 @@ a.pill:hover {
 }
 .activity-details {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 .activity-actor {
   color: var(--ink-soft);

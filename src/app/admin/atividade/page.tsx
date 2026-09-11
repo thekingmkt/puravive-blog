@@ -98,14 +98,18 @@ export default async function ActivityPage({
                       {e.action}
                     </span>
                     <span className="activity-post">
-                      <span className="activity-tipo">{TIPO[e.entity] ?? e.entity}</span>{" "}
-                      {e.postId ? (
-                        <Link href={`/admin/posts/${e.postId}`}>{e.label}</Link>
-                      ) : (
-                        e.label
-                      )}
+                      <span className="activity-alvo">
+                        <span className="activity-tipo">
+                          {TIPO[e.entity] ?? e.entity}
+                        </span>{" "}
+                        {e.postId ? (
+                          <Link href={`/admin/posts/${e.postId}`}>{e.label}</Link>
+                        ) : (
+                          e.label
+                        )}
+                      </span>
                       {e.details && (
-                        <span className="activity-details"> {e.details}</span>
+                        <span className="activity-details">{e.details}</span>
                       )}
                     </span>
                     <span className="activity-actor">{e.actorEmail}</span>
