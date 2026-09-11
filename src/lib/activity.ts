@@ -6,20 +6,15 @@ import { createClient } from "@/lib/supabase/server";
 // silêncio.
 const ROW_LIMIT = 2000;
 
-export type ActivityAction =
-  | "criou"
-  | "editou"
-  | "publicou"
-  | "agendou"
-  | "despublicou"
-  | "excluiu";
+export type ActivityEntity = "post" | "usuario" | "categoria";
 
 export type ActivityEntry = {
   id: number;
   actorEmail: string;
-  action: ActivityAction | string;
+  action: string;
+  entity: ActivityEntity | string;
   postId: string | null;
-  postTitle: string;
+  label: string;
   details: string | null;
   createdAt: string;
 };
@@ -41,13 +36,14 @@ type Actor = { id: string; email?: string | null };
  * e derrubar a ação do usuário por causa do log seria pior do que perder o log.
  * A falha vai pro console do servidor para não sumir sem deixar rastro.
  */
-export async function logPostActivity(
+export async function logActivity(
   supabase: SupabaseClient,
   actor: Actor,
   entry: {
-    action: ActivityAction;
-    postId: string | null;
-    postTitle: string;
+    action: string;
+    entity: ActivityEntity;
+    label: string;
+    postId?: string | null;
     details?: string | null;
   }
 ) {
@@ -56,8 +52,9 @@ export async function logPostActivity(
       actor_id: actor.id,
       actor_email: actor.email ?? null,
       action: entry.action,
-      post_id: entry.postId,
-      post_title: entry.postTitle,
+      entity: entry.entity,
+      post_id: entry.postId ?? null,
+      entity_label: entry.label,
       details: entry.details ?? null,
     });
     if (error) {
@@ -74,14 +71,14 @@ export async function logPostActivity(
  * Se a tabela ainda não existir (a migração é manual neste projeto), devolve
  * `available: false` em vez de estourar, do mesmo jeito que getMetrics faz.
  */
-export async function getActivity(
-  days: number | null
-): Promise<ActivityFeed> {
+export async function getActivity(days: number | null): Promise<ActivityFeed> {
   const supabase = await createClient();
 
   let query = supabase
     .from("activity_log")
-    .select("id, actor_email, action, post_id, post_title, details, created_at")
+    .select(
+      "id, actor_email, action, entity, post_id, entity_label, details, created_at"
+    )
     .order("created_at", { ascending: false })
     .limit(ROW_LIMIT + 1);
 
@@ -103,8 +100,9 @@ export async function getActivity(
       id: r.id as number,
       actorEmail: (r.actor_email as string | null) ?? "usuário removido",
       action: r.action as string,
+      entity: (r.entity as string) ?? "post",
       postId: r.post_id as string | null,
-      postTitle: r.post_title as string,
+      label: r.entity_label as string,
       details: r.details as string | null,
       createdAt: r.created_at as string,
     })),

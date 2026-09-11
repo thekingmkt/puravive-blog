@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logPostActivity } from "@/lib/activity";
+import { logActivity } from "@/lib/activity";
 import type { PostStatus } from "@/lib/types";
 
 function slugify(input: string) {
@@ -146,10 +146,11 @@ export async function createPost(
   }
 
   // Antes do redirect: redirect() lança exceção no Next, nada roda depois dele.
-  await logPostActivity(supabase, user, {
+  await logActivity(supabase, user, {
     action: "criou",
+    entity: "post",
     postId: created?.id ?? null,
-    postTitle: fields.title,
+    label: fields.title,
     details:
       fields.status === "agendado"
         ? `agendado para ${dataLegivel(fields.published_at)}`
@@ -206,10 +207,11 @@ export async function updatePost(
         ? "publicou"
         : "despublicou";
 
-  await logPostActivity(supabase, user, {
+  await logActivity(supabase, user, {
     action: acao,
+    entity: "post",
     postId,
-    postTitle: fields.title,
+    label: fields.title,
     details:
       fields.status === "agendado"
         ? `para ${dataLegivel(fields.published_at)}`
@@ -272,6 +274,12 @@ export async function createCategory(
   const { error } = await supabase.from("categories").insert(fields);
   if (error) return categoryError(error.code, error.message);
 
+  await logActivity(supabase, user, {
+    action: "criou",
+    entity: "categoria",
+    label: fields.name,
+  });
+
   revalidatePath("/admin/categorias");
   revalidatePath("/", "layout");
   return { error: null, savedAt: Date.now() };
@@ -304,6 +312,12 @@ export async function updateCategory(
     .eq("id", categoryId);
   if (error) return categoryError(error.code, error.message);
 
+  await logActivity(supabase, user, {
+    action: "editou",
+    entity: "categoria",
+    label: fields.name,
+  });
+
   revalidatePath("/admin/categorias");
   revalidatePath("/", "layout");
   revalidatePath(`/categoria/${fields.slug}`);
@@ -333,11 +347,23 @@ export async function deleteCategory(
     };
   }
 
+  const { data: alvo } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("id", categoryId)
+    .maybeSingle();
+
   const { error } = await supabase
     .from("categories")
     .delete()
     .eq("id", categoryId);
   if (error) return { error: error.message };
+
+  await logActivity(supabase, user, {
+    action: "excluiu",
+    entity: "categoria",
+    label: alvo?.name ?? "categoria sem nome",
+  });
 
   revalidatePath("/admin/categorias");
   revalidatePath("/", "layout");
@@ -386,10 +412,11 @@ export async function setPostStatus(postId: string, nextStatus: PostStatus) {
         ? "agendou"
         : "despublicou";
 
-  await logPostActivity(supabase, user, {
+  await logActivity(supabase, user, {
     action: acao,
+    entity: "post",
     postId,
-    postTitle: existing?.title ?? "post sem título",
+    label: existing?.title ?? "post sem título",
   });
 
   revalidatePath("/admin");
@@ -414,10 +441,11 @@ export async function deletePost(postId: string) {
 
   const { error } = await supabase.from("posts").delete().eq("id", postId);
   if (!error) {
-    await logPostActivity(supabase, user, {
+    await logActivity(supabase, user, {
       action: "excluiu",
+      entity: "post",
       postId: null,
-      postTitle: existing?.title ?? "post sem título",
+      label: existing?.title ?? "post sem título",
     });
   }
 
@@ -432,7 +460,7 @@ export async function createUser(
   _prevState: NewUserState,
   formData: FormData
 ): Promise<NewUserState> {
-  const { user } = await requireUser();
+  const { supabase, user } = await requireUser();
   if (!user) return { error: "Sessão expirada, faça login de novo." };
 
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -467,6 +495,12 @@ export async function createUser(
     };
   }
 
+  await logActivity(supabase, user, {
+    action: "cadastrou",
+    entity: "usuario",
+    label: email,
+  });
+
   revalidatePath("/admin/usuarios");
   return { error: null, ok: `${email} já pode entrar no painel.` };
 }
@@ -478,7 +512,7 @@ export async function deleteUser(
   _prevState: DeleteUserState,
   _formData: FormData
 ): Promise<DeleteUserState> {
-  const { user } = await requireUser();
+  const { supabase, user } = await requireUser();
   if (!user) return { error: "Sessão expirada, faça login de novo." };
 
   // Remover a si mesmo derrubaria a própria sessão no meio do caminho e
@@ -499,8 +533,19 @@ export async function deleteUser(
     return { error: "Esse é o último usuário. Sem ele ninguém entra no painel." };
   }
 
+  // O e-mail tem que sair da lista antes do apagamento, senão o registro fica
+  // sem como dizer quem perdeu o acesso.
+  const alvo =
+    lista.users.find((u) => u.id === userId)?.email ?? "usuário sem e-mail";
+
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) return { error: error.message };
+
+  await logActivity(supabase, user, {
+    action: "removeu",
+    entity: "usuario",
+    label: alvo,
+  });
 
   revalidatePath("/admin/usuarios");
   return { error: null };

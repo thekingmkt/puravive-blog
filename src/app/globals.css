@@ -2306,3 +2306,16 @@ a.pill:hover {
     grid-column: 1 / -1;
   }
 }
+
+.activity-tipo {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+.activity-action-cadastrou {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+.activity-action-removeu {
+  background: #fee2e2;
+  color: #b91c1c;
+}

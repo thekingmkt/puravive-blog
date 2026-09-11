@@ -9,6 +9,14 @@ const PERIODS: { key: string; days: number | null; label: string }[] = [
   { key: "tudo", days: null, label: "Tudo" },
 ];
 
+// "publicou o post X" e "removeu o usuário X" só se distinguem se a linha
+// disser de que tipo é a coisa mexida.
+const TIPO: Record<string, string> = {
+  post: "post",
+  usuario: "usuário",
+  categoria: "categoria",
+};
+
 // Mesmo motivo da lista de posts: o servidor roda em UTC e, sem fixar o fuso,
 // uma ação das 22h apareceria com a data do dia seguinte.
 const TZ = "America/Sao_Paulo";
@@ -58,8 +66,9 @@ export default async function ActivityPage({
         </div>
 
         <p className="admin-hint">
-          Tudo que foi feito nos posts, com quem fez e quando. O histórico não
-          pode ser editado nem apagado por ninguém, nem por aqui.
+          Tudo que foi feito no painel, com quem fez e quando: post, categoria
+          e usuário. O histórico não pode ser editado nem apagado por ninguém,
+          nem por aqui.
         </p>
 
         {!feed.available ? (
@@ -89,12 +98,11 @@ export default async function ActivityPage({
                       {e.action}
                     </span>
                     <span className="activity-post">
+                      <span className="activity-tipo">{TIPO[e.entity] ?? e.entity}</span>{" "}
                       {e.postId ? (
-                        <Link href={`/admin/posts/${e.postId}`}>
-                          {e.postTitle}
-                        </Link>
+                        <Link href={`/admin/posts/${e.postId}`}>{e.label}</Link>
                       ) : (
-                        e.postTitle
+                        e.label
                       )}
                       {e.details && (
                         <span className="activity-details"> {e.details}</span>
