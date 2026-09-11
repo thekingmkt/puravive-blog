@@ -134,6 +134,13 @@ p {
   background: var(--brand-ink);
   transform: translateY(-1px);
 }
+.btn-store--yellow {
+  background: #e0a400;
+  color: #14210f;
+}
+.btn-store--yellow:hover {
+  background: #c08e00;
+}
 
 /* mobile menu */
 .menu-toggle {
