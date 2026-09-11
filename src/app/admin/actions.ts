@@ -218,7 +218,7 @@ export async function updatePost(
   const { data: existing } = await supabase
     .from("posts")
     .select(
-      "slug, status, title, category_id, cover_image_url, excerpt, content_html, meta_title, meta_description, product_name, product_image_url, product_description, product_url"
+      "slug, status, published_at, title, category_id, cover_image_url, excerpt, content_html, meta_title, meta_description, product_name, product_image_url, product_description, product_url"
     )
     .eq("id", postId)
     .maybeSingle();
@@ -235,17 +235,29 @@ export async function updatePost(
     return { error: error.message };
   }
 
-  // Agendar ou publicar pelo formulário é uma mudança de estado, não uma
-  // edição qualquer: o registro precisa dizer isso, senão some no meio dos
-  // "editou" e ninguém descobre quem pôs o post no ar.
+  // Agendar, reagendar ou publicar não é "editar": o registro tem que chamar
+  // cada uma pelo nome, senão tudo vira "editou" e ninguém descobre quem pôs
+  // o post no ar nem quem mudou a data de um agendamento.
+  //
+  // A data sai do banco em UTC e do formulário em horário de Brasília. Como
+  // texto elas são diferentes mesmo apontando para o mesmo instante, então a
+  // comparação é feita em milissegundos.
+  const instante = (v: string | null | undefined) =>
+    v ? new Date(v).getTime() : null;
+
   const mudouStatus = existing?.status !== fields.status;
-  const acao = !mudouStatus
-    ? "editou"
-    : fields.status === "agendado"
+  const mudouData =
+    instante(existing?.published_at) !== instante(fields.published_at);
+
+  const acao = mudouStatus
+    ? fields.status === "agendado"
       ? "agendou"
       : fields.status === "publicado"
         ? "publicou"
-        : "despublicou";
+        : "despublicou"
+    : fields.status === "agendado" && mudouData
+      ? "reagendou"
+      : "editou";
 
   const mudancas = listarMudancas(existing, fields, CAMPOS_DO_POST);
   const quando =
