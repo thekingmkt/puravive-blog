@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { logPostActivity } from "@/lib/activity";
 import type { PostStatus } from "@/lib/types";
 
 function slugify(input: string) {
@@ -112,9 +114,11 @@ export async function createPost(
   if (!fields.title) return { error: "Título é obrigatório." };
   if (!fields.slug) return { error: "Não foi possível gerar o link do post." };
 
-  const { error } = await supabase
+  const { data: created, error } = await supabase
     .from("posts")
-    .insert({ ...fields, author_id: user.id });
+    .insert({ ...fields, author_id: user.id })
+    .select("id")
+    .maybeSingle();
 
   if (error) {
     if (error.code === "23505") {
@@ -122,6 +126,14 @@ export async function createPost(
     }
     return { error: error.message };
   }
+
+  // Antes do redirect: redirect() lança exceção no Next, nada roda depois dele.
+  await logPostActivity(supabase, user, {
+    action: "criou",
+    postId: created?.id ?? null,
+    postTitle: fields.title,
+    details: `salvou como ${fields.status}`,
+  });
 
   revalidatePath("/admin");
   revalidatePath("/");
@@ -160,6 +172,12 @@ export async function updatePost(
     }
     return { error: error.message };
   }
+
+  await logPostActivity(supabase, user, {
+    action: "editou",
+    postId,
+    postTitle: fields.title,
+  });
 
   revalidatePath("/admin");
   revalidatePath("/");
@@ -298,7 +316,7 @@ export async function setPostStatus(postId: string, nextStatus: PostStatus) {
 
   const { data: existing } = await supabase
     .from("posts")
-    .select("slug, published_at")
+    .select("slug, title, published_at")
     .eq("id", postId)
     .maybeSingle();
 
@@ -316,7 +334,26 @@ export async function setPostStatus(postId: string, nextStatus: PostStatus) {
     }
   }
 
-  await supabase.from("posts").update(fields).eq("id", postId);
+  // O erro era ignorado aqui. Sem checar, o registro de atividade passaria a
+  // mentir: mostraria uma publicação que o banco recusou.
+  const { error } = await supabase
+    .from("posts")
+    .update(fields)
+    .eq("id", postId);
+  if (error) return;
+
+  const acao =
+    nextStatus === "publicado"
+      ? "publicou"
+      : nextStatus === "agendado"
+        ? "agendou"
+        : "despublicou";
+
+  await logPostActivity(supabase, user, {
+    action: acao,
+    postId,
+    postTitle: existing?.title ?? "post sem título",
+  });
 
   revalidatePath("/admin");
   revalidatePath("/");
@@ -330,9 +367,69 @@ export async function deletePost(postId: string) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/admin/login");
 
-  await supabase.from("posts").delete().eq("id", postId);
+  // O título tem que ser lido antes de apagar, senão o registro fica sem como
+  // dizer qual post sumiu.
+  const { data: existing } = await supabase
+    .from("posts")
+    .select("title")
+    .eq("id", postId)
+    .maybeSingle();
+
+  const { error } = await supabase.from("posts").delete().eq("id", postId);
+  if (!error) {
+    await logPostActivity(supabase, user, {
+      action: "excluiu",
+      postId: null,
+      postTitle: existing?.title ?? "post sem título",
+    });
+  }
 
   revalidatePath("/admin");
   revalidatePath("/");
   redirect("/admin");
+}
+
+export type NewUserState = { error: string | null; ok?: string };
+
+export async function createUser(
+  _prevState: NewUserState,
+  formData: FormData
+): Promise<NewUserState> {
+  const { user } = await requireUser();
+  if (!user) return { error: "Sessão expirada, faça login de novo." };
+
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const password = String(formData.get("password") || "");
+
+  if (!email) return { error: "Informe o e-mail." };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Esse e-mail não parece válido." };
+  }
+  if (password.length < 8) {
+    return { error: "A senha precisa ter pelo menos 8 caracteres." };
+  }
+
+  const admin = createAdminClient();
+  // email_confirm: true porque quem cadastra aqui já é do time. Sem isso a
+  // pessoa receberia um e-mail de confirmação e não conseguiria entrar antes
+  // de clicar nele.
+  const { error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (error) {
+    const jaExiste =
+      error.status === 422 ||
+      /already|registered|exists/i.test(error.message);
+    return {
+      error: jaExiste
+        ? "Já existe um usuário com esse e-mail."
+        : error.message,
+    };
+  }
+
+  revalidatePath("/admin/usuarios");
+  return { error: null, ok: `${email} já pode entrar no painel.` };
 }

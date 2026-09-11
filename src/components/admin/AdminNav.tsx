@@ -8,6 +8,8 @@ const SECTIONS = [
   { href: "/admin", label: "Posts" },
   { href: "/admin/categorias", label: "Categorias" },
   { href: "/admin/metricas", label: "Métricas" },
+  { href: "/admin/atividade", label: "Atividade" },
+  { href: "/admin/usuarios", label: "Usuários" },
 ];
 
 export default function AdminNav() {
