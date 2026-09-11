@@ -273,7 +273,10 @@ export async function updatePost(
     details:
       [quando, mudancas ? `mudou ${mudancas}` : null]
         .filter(Boolean)
-        .join(" · ") || "salvou sem alterar nada",
+        .join(" · ") ||
+      // "publicou · salvou sem alterar nada" se contradiz: a ação já é a
+      // mudança. O aviso só faz sentido quando a ação é uma edição.
+      (acao === "editou" ? "salvou sem alterar nada" : null),
   });
 
   revalidatePath("/admin");
