@@ -1078,6 +1078,9 @@ a.pill:hover {
     width: 100%;
     justify-content: space-between;
     gap: 12px;
+    /* O menu ocupa a linha inteira aqui dentro; sem quebrar, ele monta em
+       cima do logo. */
+    flex-wrap: wrap;
   }
   .admin-nav {
     order: 3;
