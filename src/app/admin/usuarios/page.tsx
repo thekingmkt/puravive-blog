@@ -1,7 +1,9 @@
 import AdminHeader from "@/components/admin/AdminHeader";
 import NewUserForm from "@/components/admin/NewUserForm";
+import DeleteUserButton from "@/components/admin/DeleteUserButton";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createUser } from "../actions";
+import { createClient } from "@/lib/supabase/server";
+import { createUser, deleteUser } from "../actions";
 
 const TZ = "America/Sao_Paulo";
 
@@ -36,6 +38,12 @@ async function listUsers() {
 export default async function UsersPage() {
   const users = await listUsers();
 
+  // Para marcar qual linha é a de quem está olhando: essa não pode ser removida.
+  const supabase = await createClient();
+  const {
+    data: { user: atual },
+  } = await supabase.auth.getUser();
+
   return (
     <>
       <AdminHeader />
@@ -69,6 +77,11 @@ export default async function UsersPage() {
                 <span className="user-row-date">
                   desde {formatDate(u.createdAt)}
                 </span>
+                <DeleteUserButton
+                  action={deleteUser.bind(null, u.id)}
+                  email={u.email}
+                  ehVoce={u.id === atual?.id}
+                />
               </div>
             ))}
           </div>

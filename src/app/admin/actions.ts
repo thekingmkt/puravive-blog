@@ -470,3 +470,38 @@ export async function createUser(
   revalidatePath("/admin/usuarios");
   return { error: null, ok: `${email} já pode entrar no painel.` };
 }
+
+export type DeleteUserState = { error: string | null };
+
+export async function deleteUser(
+  userId: string,
+  _prevState: DeleteUserState,
+  _formData: FormData
+): Promise<DeleteUserState> {
+  const { user } = await requireUser();
+  if (!user) return { error: "Sessão expirada, faça login de novo." };
+
+  // Remover a si mesmo derrubaria a própria sessão no meio do caminho e
+  // deixaria a tela num estado sem volta.
+  if (userId === user.id) {
+    return { error: "Você não pode remover a sua própria conta." };
+  }
+
+  const admin = createAdminClient();
+
+  // Sem esta trava dá para apagar todo mundo e trancar o painel para sempre:
+  // não existe tela de cadastro pública para criar o primeiro usuário de volta.
+  const { data: lista, error: erroLista } = await admin.auth.admin.listUsers({
+    perPage: 200,
+  });
+  if (erroLista) return { error: erroLista.message };
+  if (lista.users.length <= 1) {
+    return { error: "Esse é o último usuário. Sem ele ninguém entra no painel." };
+  }
+
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin/usuarios");
+  return { error: null };
+}
