@@ -14,7 +14,7 @@ const initialState: NewUserState = { error: null };
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" className="btn-store btn-store--yellow" disabled={pending}>
+    <button type="submit" className="btn-store" disabled={pending}>
       {pending ? "Cadastrando…" : "Cadastrar usuário"}
     </button>
   );
