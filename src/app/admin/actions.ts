@@ -69,6 +69,24 @@ function scheduledToIso(raw: string): string | null {
   return `${withSeconds}-03:00`;
 }
 
+// Data legível para o registro de atividade, no fuso do blog.
+function dataLegivel(iso: string | null) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const dia = d.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "America/Sao_Paulo",
+  });
+  const hora = d.toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
+  return `${dia} às ${hora}`;
+}
+
 function readPostFields(formData: FormData) {
   const title = String(formData.get("title") || "").trim();
   const rawSlug = String(formData.get("slug") || "").trim();
@@ -132,7 +150,10 @@ export async function createPost(
     action: "criou",
     postId: created?.id ?? null,
     postTitle: fields.title,
-    details: `salvou como ${fields.status}`,
+    details:
+      fields.status === "agendado"
+        ? `agendado para ${dataLegivel(fields.published_at)}`
+        : `salvou como ${fields.status}`,
   });
 
   revalidatePath("/admin");
@@ -157,7 +178,7 @@ export async function updatePost(
 
   const { data: existing } = await supabase
     .from("posts")
-    .select("slug")
+    .select("slug, status")
     .eq("id", postId)
     .maybeSingle();
 
@@ -173,10 +194,26 @@ export async function updatePost(
     return { error: error.message };
   }
 
+  // Agendar ou publicar pelo formulário é uma mudança de estado, não uma
+  // edição qualquer: o registro precisa dizer isso, senão some no meio dos
+  // "editou" e ninguém descobre quem pôs o post no ar.
+  const mudouStatus = existing?.status !== fields.status;
+  const acao = !mudouStatus
+    ? "editou"
+    : fields.status === "agendado"
+      ? "agendou"
+      : fields.status === "publicado"
+        ? "publicou"
+        : "despublicou";
+
   await logPostActivity(supabase, user, {
-    action: "editou",
+    action: acao,
     postId,
     postTitle: fields.title,
+    details:
+      fields.status === "agendado"
+        ? `para ${dataLegivel(fields.published_at)}`
+        : null,
   });
 
   revalidatePath("/admin");
