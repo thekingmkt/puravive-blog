@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import type { NewUserState } from "@/app/admin/actions";
 
@@ -22,16 +22,62 @@ function SubmitButton() {
 
 export default function NewUserForm({ action }: { action: Action }) {
   const [state, formAction] = useActionState(action, initialState);
-  const formRef = useRef<HTMLFormElement>(null);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  // O que foi realmente cadastrado, congelado no momento do sucesso.
+  const [criado, setCriado] = useState<{ email: string; senha: string } | null>(
+    null
+  );
+  const enviando = useRef<{ email: string; senha: string }>({
+    email: "",
+    senha: "",
+  });
 
-  // Depois de cadastrar, limpa os campos: senão a senha de quem acabou de ser
-  // criado fica visível na tela para a próxima pessoa que passar.
   useEffect(() => {
-    if (state.ok) formRef.current?.reset();
+    if (state.ok) {
+      setCriado({ ...enviando.current });
+      setEmail("");
+      setSenha("");
+    }
   }, [state.ok]);
 
+  if (criado) {
+    return (
+      <div className="user-created">
+        <p className="user-created-title">Usuário cadastrado</p>
+        <dl className="user-created-data">
+          <div>
+            <dt>E-mail</dt>
+            <dd>{criado.email}</dd>
+          </div>
+          <div>
+            <dt>Senha</dt>
+            <dd>{criado.senha}</dd>
+          </div>
+        </dl>
+        <p className="field-hint">
+          Manda esses dois dados para a pessoa. A senha não aparece de novo
+          depois que você sair desta tela, então copie agora se precisar.
+        </p>
+        <button
+          type="button"
+          className="btn-quiet"
+          onClick={() => setCriado(null)}
+        >
+          Cadastrar outro usuário
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <form ref={formRef} action={formAction} className="user-form">
+    <form
+      action={formAction}
+      className="user-form"
+      onSubmit={() => {
+        enviando.current = { email, senha };
+      }}
+    >
       <div className="user-form-fields">
         <div className="field">
           <label className="field-label" htmlFor="email">
@@ -43,6 +89,8 @@ export default function NewUserForm({ action }: { action: Action }) {
             type="email"
             autoComplete="off"
             placeholder="rodrigo@exemplo.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
           />
         </div>
@@ -58,6 +106,8 @@ export default function NewUserForm({ action }: { action: Action }) {
             autoComplete="off"
             minLength={8}
             placeholder="mínimo de 8 caracteres"
+            value={senha}
+            onChange={(e) => setSenha(e.target.value)}
             required
           />
           <p className="field-hint">
@@ -68,7 +118,6 @@ export default function NewUserForm({ action }: { action: Action }) {
       </div>
 
       {state.error && <p className="field-error">{state.error}</p>}
-      {state.ok && <p className="field-success">{state.ok}</p>}
 
       <SubmitButton />
     </form>

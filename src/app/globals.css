@@ -2233,3 +2233,46 @@ a.pill:hover {
     grid-column: 1 / -1;
   }
 }
+
+.user-created {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.user-created-title {
+  font-weight: 700;
+  color: var(--brand-ink);
+  margin: 0;
+}
+.user-created-data {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 0;
+  width: 100%;
+}
+.user-created-data dt {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+.user-created-data dd {
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--ink);
+  font-weight: 600;
+  word-break: break-all;
+  user-select: all;
+}
+@media (max-width: 700px) {
+  .user-created-data {
+    grid-template-columns: 1fr;
+  }
+}
