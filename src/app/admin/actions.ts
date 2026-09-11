@@ -87,6 +87,44 @@ function dataLegivel(iso: string | null) {
   return `${dia} às ${hora}`;
 }
 
+// "editou" sozinho não conta nada: quem lê o registro precisa saber se mexeram
+// no título, no texto ou só na capa.
+const CAMPOS_DO_POST: { campo: string; nome: string }[] = [
+  { campo: "title", nome: "o título" },
+  { campo: "slug", nome: "o link" },
+  { campo: "category_id", nome: "a categoria" },
+  { campo: "cover_image_url", nome: "a imagem de capa" },
+  { campo: "excerpt", nome: "o resumo" },
+  { campo: "content_html", nome: "o conteúdo" },
+  { campo: "meta_title", nome: "o SEO" },
+  { campo: "meta_description", nome: "o SEO" },
+  { campo: "product_name", nome: "o produto relacionado" },
+  { campo: "product_image_url", nome: "o produto relacionado" },
+  { campo: "product_description", nome: "o produto relacionado" },
+  { campo: "product_url", nome: "o produto relacionado" },
+];
+
+function listarMudancas(
+  antes: Record<string, unknown> | null | undefined,
+  depois: Record<string, unknown>,
+  campos: { campo: string; nome: string }[]
+) {
+  if (!antes) return null;
+
+  const nomes: string[] = [];
+  for (const { campo, nome } of campos) {
+    const a = antes[campo] ?? null;
+    const b = depois[campo] ?? null;
+    // Vários campos caem no mesmo nome (os quatro do produto, os dois de SEO),
+    // então o nome só entra uma vez.
+    if (a !== b && !nomes.includes(nome)) nomes.push(nome);
+  }
+
+  if (nomes.length === 0) return null;
+  if (nomes.length === 1) return nomes[0];
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+}
+
 function readPostFields(formData: FormData) {
   const title = String(formData.get("title") || "").trim();
   const rawSlug = String(formData.get("slug") || "").trim();
@@ -179,7 +217,9 @@ export async function updatePost(
 
   const { data: existing } = await supabase
     .from("posts")
-    .select("slug, status")
+    .select(
+      "slug, status, title, category_id, cover_image_url, excerpt, content_html, meta_title, meta_description, product_name, product_image_url, product_description, product_url"
+    )
     .eq("id", postId)
     .maybeSingle();
 
@@ -207,15 +247,21 @@ export async function updatePost(
         ? "publicou"
         : "despublicou";
 
+  const mudancas = listarMudancas(existing, fields, CAMPOS_DO_POST);
+  const quando =
+    fields.status === "agendado"
+      ? `para ${dataLegivel(fields.published_at)}`
+      : null;
+
   await logActivity(supabase, user, {
     action: acao,
     entity: "post",
     postId,
     label: fields.title,
     details:
-      fields.status === "agendado"
-        ? `para ${dataLegivel(fields.published_at)}`
-        : null,
+      [quando, mudancas ? `mudou ${mudancas}` : null]
+        .filter(Boolean)
+        .join(" · ") || "salvou sem alterar nada",
   });
 
   revalidatePath("/admin");
@@ -228,6 +274,13 @@ export async function updatePost(
 }
 
 export type CategoryFormState = { error: string | null; savedAt?: number };
+
+const CAMPOS_DA_CATEGORIA: { campo: string; nome: string }[] = [
+  { campo: "name", nome: "o nome" },
+  { campo: "slug", nome: "o link" },
+  { campo: "description", nome: "a descrição" },
+  { campo: "position", nome: "a ordem no menu" },
+];
 
 function readCategoryFields(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
@@ -302,7 +355,7 @@ export async function updateCategory(
 
   const { data: existing } = await supabase
     .from("categories")
-    .select("slug")
+    .select("slug, name, description, position")
     .eq("id", categoryId)
     .maybeSingle();
 
@@ -316,6 +369,10 @@ export async function updateCategory(
     action: "editou",
     entity: "categoria",
     label: fields.name,
+    details: (() => {
+      const m = listarMudancas(existing, fields, CAMPOS_DA_CATEGORIA);
+      return m ? `mudou ${m}` : "salvou sem alterar nada";
+    })(),
   });
 
   revalidatePath("/admin/categorias");
